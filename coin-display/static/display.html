@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Challenge Coin Display</title>
+<style>
+  :root { --bg:#16382b; --bg2:#0c2219; --ink:#f1ead8; --dim:rgba(241,234,216,.6); --cell:rgba(255,255,255,.035); --accent:#d9b25f; }
+  body[data-theme="walnut"] { --bg:#4a2f1d; --bg2:#22140b; --ink:#f4e6d0; --dim:rgba(244,230,208,.6); }
+  body[data-theme="black"]  { --bg:#111; --bg2:#000; --ink:#eee; --dim:rgba(238,238,238,.55); --cell:rgba(255,255,255,.03); }
+  body[data-theme="navy"]   { --bg:#17284d; --bg2:#0a1226; --ink:#eaeefa; --dim:rgba(234,238,250,.6); }
+  body[data-theme="slate"]  { --bg:#3b4148; --bg2:#1d2024; --ink:#eef0f2; --dim:rgba(238,240,242,.6); }
+  body[data-theme="light"]  { --bg:#f3efe6; --bg2:#d9d3c5; --ink:#2a2620; --dim:rgba(42,38,32,.6); --cell:rgba(0,0,0,.04); --accent:#8a6417; }
+
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; margin:0; overflow:hidden; }
+  body { background:radial-gradient(ellipse at 50% 35%, var(--bg), var(--bg2)); color:var(--ink);
+         font-family:Georgia, "Times New Roman", serif; user-select:none; -webkit-user-select:none; touch-action:manipulation; }
+  body.idle { cursor:none; }
+  button { font:inherit; color:inherit; }
+
+  #title { position:absolute; left:0; right:0; top:0; display:flex; align-items:center; justify-content:center;
+           letter-spacing:.14em; text-transform:uppercase; white-space:nowrap; overflow:hidden; color:var(--ink); }
+  #grid { position:absolute; transition:opacity .6s; }
+  #grid.fade { opacity:0; }
+  .slot { position:absolute; border-radius:8%; background:var(--cell); }
+  .coin { position:absolute; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; }
+  .persp { perspective:1400px; }
+  .flipper { position:relative; transform-style:preserve-3d; transition:transform .95s cubic-bezier(.45,.05,.3,1); will-change:transform; }
+  .flipper.flipped { transform:rotateY(180deg); }
+  .face { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; backface-visibility:hidden; -webkit-backface-visibility:hidden;
+          filter:drop-shadow(0 .5vmin 1vmin rgba(0,0,0,.55)); pointer-events:none; }
+  .face.back { transform:rotateY(180deg); }
+  .coin:active .persp { transform:scale(.96); }
+  .label { color:var(--dim); text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:96%; font-family:system-ui, sans-serif; }
+
+  #dots { position:absolute; left:0; right:0; bottom:4px; display:flex; gap:8px; justify-content:center; }
+  #dots i { width:7px; height:7px; border-radius:50%; background:var(--dim); opacity:.4; }
+  #dots i.on { opacity:1; background:var(--accent); }
+
+  #gear { position:absolute; right:10px; bottom:10px; width:44px; height:44px; border-radius:50%; border:0; background:rgba(0,0,0,.25);
+          color:var(--ink); font-size:22px; opacity:.28; cursor:pointer; z-index:5; }
+  #gear:hover { opacity:.9; }
+
+  /* empty state */
+  #empty { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:2vmin; text-align:center; padding:4vmin; }
+  #empty img { width:min(38vmin,340px); border-radius:12px; }
+  #empty h1 { font-size:5vmin; margin:0; font-weight:normal; letter-spacing:.06em; }
+  #empty p { font-size:2.6vmin; margin:0; color:var(--dim); font-family:system-ui, sans-serif; }
+  #empty b { color:var(--accent); }
+
+  /* enlarged coin: both sides next to one another */
+  #zoom { position:fixed; inset:0; z-index:20; display:none; flex-direction:column; align-items:center; justify-content:center;
+          background:rgba(0,0,0,.86); backdrop-filter:blur(6px); cursor:pointer; opacity:0; transition:opacity .25s; }
+  #zoom.open { display:flex; }
+  #zoom.show { opacity:1; }
+  #zoomSides { display:flex; align-items:center; justify-content:center; transform:scale(.6); transition:transform .35s cubic-bezier(.2,.9,.3,1.15); }
+  #zoom.show #zoomSides { transform:scale(1); }
+  #zoomSides figure { margin:0; display:flex; flex-direction:column; align-items:center; }
+  #zoomSides img { display:block; object-fit:contain; filter:drop-shadow(0 1.5vmin 3vmin rgba(0,0,0,.7)); }
+  #zoomSides figcaption { color:rgba(255,255,255,.55); font:600 1.7vmin system-ui, sans-serif; letter-spacing:.25em; text-transform:uppercase; margin-top:1.2vmin; }
+  #zoomName { color:#fff; font-size:3.6vmin; margin-top:2.2vmin; text-align:center; padding:0 4vw; }
+  #zoomNotes { color:rgba(255,255,255,.65); font:2vmin system-ui, sans-serif; margin-top:.8vmin; text-align:center; padding:0 6vw; }
+  #zoomClose { position:absolute; top:2vmin; right:2vmin; width:7vmin; height:7vmin; min-width:48px; min-height:48px; border-radius:50%;
+               border:0; background:rgba(255,255,255,.14); color:#fff; font-size:3.4vmin; cursor:pointer; }
+
+  /* this-screen setup */
+  #setup { position:fixed; inset:0; z-index:30; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.8); font-family:system-ui, sans-serif; }
+  #setup.open { display:flex; }
+  #panel { background:#1c1f24; color:#eee; border-radius:16px; padding:22px 26px; width:min(760px,94vw); max-height:94vh; overflow:auto; }
+  #panel h2 { margin:0 0 4px; font-size:22px; }
+  #panel h3 { margin:18px 0 8px; font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:#9aa3ad; }
+  #panel p { margin:4px 0; color:#b9c0c8; font-size:14px; line-height:1.4; }
+  .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .row button { min-height:46px; min-width:58px; padding:0 14px; border-radius:10px; border:1px solid #3a4048; background:#2a2f36; color:#eee; font-size:16px; cursor:pointer; }
+  .row button.on { background:#d9b25f; color:#161616; border-color:#d9b25f; font-weight:600; }
+  #diagVal { font-size:26px; min-width:96px; text-align:center; font-variant-numeric:tabular-nums; }
+  #card { border:2px dashed #d9b25f; border-radius:4%; display:flex; align-items:center; justify-content:center; color:#d9b25f; font-size:13px; margin:10px 0 4px; max-width:100%; }
+  #info { background:#12151a; border-radius:10px; padding:10px 12px; font-size:14px; color:#cfd6dd; margin-top:8px; }
+  #setupFoot { display:flex; gap:14px; align-items:center; margin-top:18px; }
+  #setupFoot img { width:92px; height:92px; border-radius:6px; }
+  #done { margin-left:auto; min-height:50px; padding:0 30px; border-radius:10px; border:0; background:#d9b25f; color:#161616; font-size:17px; font-weight:600; cursor:pointer; }
+</style>
+</head>
+<body class="idle">
+<div id="title"></div>
+<div id="grid"></div>
+<div id="dots"></div>
+<button id="gear" aria-label="Screen setup">⚙</button>
+
+<div id="empty">
+  <h1>Challenge Coin Display</h1>
+  <img id="emptyQr" alt="QR code for the admin page">
+  <p>Scan with your phone to add your first coin,<br>or open <b id="emptyUrl"></b> on a PC.</p>
+</div>
+
+<div id="zoom">
+  <button id="zoomClose" aria-label="Close">✕</button>
+  <div id="zoomSides"></div>
+  <div id="zoomName"></div>
+  <div id="zoomNotes"></div>
+</div>
+
+<div id="setup">
+  <div id="panel">
+    <h2>Set up this screen</h2>
+    <p>Coins are drawn at real-life size, so the display needs to know how big this screen is. This is remembered for this screen only.</p>
+    <h3>Screen size (diagonal)</h3>
+    <div class="row" id="presets"></div>
+    <div class="row" style="margin-top:10px">
+      <button data-step="-1">−1</button><button data-step="-0.1">−0.1</button>
+      <div id="diagVal">–</div>
+      <button data-step="0.1">+0.1</button><button data-step="1">+1</button>
+    </div>
+    <h3>Check it</h3>
+    <p>Hold a credit or ID card against this outline. If it doesn't match, nudge the size until it does.</p>
+    <div id="card">card</div>
+    <h3>Layout</h3>
+    <div class="row" id="modes"></div>
+    <p id="modeHelp"></p>
+    <div id="info"></div>
+    <div id="setupFoot">
+      <img id="setupQr" alt="">
+      <p>Add and manage coins from a phone or PC:<br><b id="setupUrl" style="color:#d9b25f"></b></p>
+      <button id="done">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} },
+};
+const params = new URLSearchParams(location.search);
+const MODES = {
+  '':     ['Default', 'Use the layout chosen on the admin page.'],
+  fit:    ['Fit grid', 'Keep the full grid. Coins are life-size when the screen is big enough, otherwise everything shrinks evenly to fit.'],
+  true:   ['True size', 'Coins are always life-size. The number of rows and columns changes to suit this screen, and extra coins go to more pages.'],
+  fill:   ['Fill screen', 'Keep the full grid and stretch it to fill this screen, even if coins end up larger than life.'],
+};
+const PRESETS = [15.6, 21.5, 24, 27, 32, 43, 50, 55, 65];
+
+let state = { version: -1, settings: {}, coins: [], admin_url: '' };
+let local = { diag: parseFloat(store.get('coin.diag')) || 0, mode: store.get('coin.mode') || '' };
+let L = null;            // current layout
+let pages = [], pageIx = 0, tick = 0;
+let flipTimer = null, pageTimer = null, zoomTimer = null;
+
+/* ---------- layout: adapts to whatever screen / window this is ---------- */
+function diagonal() {
+  return parseFloat(params.get('diag')) || local.diag || state.settings.diagonal_in || 0;
+}
+function computeLayout() {
+  const s = state.settings, W = innerWidth, H = innerHeight;
+  const titleH = s.title ? Math.round(Math.max(28, Math.min(H * 0.07, 72))) : 0;
+  const pad = Math.round(Math.min(W, H) * 0.02);
+  const dotsH = 14;
+  const availW = W - 2 * pad, availH = H - titleH - 2 * pad - dotsH;
+  const d = diagonal();
+  // CSS pixels per real inch on this screen
+  const ppi = d ? Math.hypot(screen.width, screen.height) / d : 0;
+  let mode = params.get('mode') || local.mode || s.scale_mode || 'fit';
+  if (!ppi) mode = 'fill';
+  let cols = s.cols, rows = s.rows, cellPx;
+  if (mode === 'true') {
+    cellPx = Math.min(s.cell_in * ppi, availW, availH);
+    cols = Math.max(1, Math.floor(availW / cellPx));
+    rows = Math.max(1, Math.floor(availH / cellPx));
+  } else {
+    cellPx = Math.min(availW / cols, availH / rows);
+    if (mode === 'fit') cellPx = Math.min(cellPx, s.cell_in * ppi);
+  }
+  const gw = cols * cellPx, gh = rows * cellPx;
+  return { W, H, titleH, cols, rows, cellPx, mode, ppi, diag: d,
+           pxPerIn: cellPx / s.cell_in, scale: ppi ? cellPx / (s.cell_in * ppi) : 0,
+           left: Math.round((W - gw) / 2), top: Math.round(titleH + (H - titleH - dotsH - gh) / 2), gw, gh };
+}
+
+/* ---------- packing: big / odd coins take several cells ---------- */
+function spanOf(coin, cols, rows) {
+  const cell = state.settings.cell_in, margin = 0.2;
+  const w = coin.width_in, h = coin.width_in * (coin.aspect || 1);
+  const sc = coin.span_cols || Math.max(1, Math.ceil((w + margin) / cell));
+  const sr = coin.span_rows || Math.max(1, Math.ceil((h + margin) / cell));
+  return [Math.min(sc, cols), Math.min(sr, rows)];
+}
+function pack(coins, cols, rows) {
+  const out = [];
+  let used = null, page = null;
+  const fresh = () => { used = Array.from({ length: rows }, () => Array(cols).fill(false)); page = []; out.push(page); };
+  const place = (coin, sc, sr) => {
+    for (let r = 0; r + sr <= rows; r++) for (let c = 0; c + sc <= cols; c++) {
+      let ok = true;
+      for (let y = r; y < r + sr && ok; y++) for (let x = c; x < c + sc; x++) if (used[y][x]) { ok = false; break; }
+      if (!ok) continue;
+      for (let y = r; y < r + sr; y++) for (let x = c; x < c + sc; x++) used[y][x] = true;
+      page.push({ coin, c, r, sc, sr });
+      return true;
+    }
+    return false;
+  };
+  fresh();
+  for (const coin of coins) {
+    const [sc, sr] = spanOf(coin, cols, rows);
+    if (!place(coin, sc, sr)) { fresh(); place(coin, sc, sr); }
+  }
+  return out.filter(p => p.length);
+}
+
+/* ---------- rendering ---------- */
+const src = (coin, side) => `/img/${coin.id}/${side === 'back' && coin.has_back ? 'back' : 'front'}?v=${coin.v}`;
+
+function render() {
+  const s = state.settings;
+  document.body.dataset.theme = s.theme || 'felt';
+  L = computeLayout();
+  const visible = state.coins.filter(c => !c.hidden);
+  $('empty').style.display = visible.length ? 'none' : 'flex';
+  $('emptyQr').src = $('setupQr').src = '/api/qr.svg';
+  $('emptyUrl').textContent = $('setupUrl').textContent = state.admin_url;
+
+  const t = $('title');
+  t.textContent = s.title || '';
+  t.style.height = L.titleH + 'px';
+  t.style.fontSize = Math.round(L.titleH * 0.48) + 'px';
+
+  pages = visible.length ? pack(visible, L.cols, L.rows) : [];
+  if (pageIx >= pages.length) pageIx = 0;
+  drawPage();
+
+  clearInterval(flipTimer); clearInterval(pageTimer);
+  flipTimer = setInterval(flip, Math.max(2, s.flip_interval || 5) * 1000);
+  if (pages.length > 1) pageTimer = setInterval(nextPage, Math.max(5, s.page_seconds || 30) * 1000);
+  if ($('setup').classList.contains('open')) refreshSetup();
+}
+
+function drawPage() {
+  const g = $('grid'), s = state.settings;
+  g.innerHTML = '';
+  g.style.cssText = `left:${L.left}px;top:${L.top}px;width:${L.gw}px;height:${L.gh}px`;
+  tick = 0;
+  const cell = L.cellPx, gap = cell * 0.06;
+  const labelH = s.show_labels ? Math.max(11, Math.round(cell * 0.085)) : 0;
+  if (state.coins.length) for (let r = 0; r < L.rows; r++) for (let c = 0; c < L.cols; c++) {
+    const d = document.createElement('div');
+    d.className = 'slot';
+    d.style.cssText = `left:${c * cell + gap / 2}px;top:${r * cell + gap / 2}px;width:${cell - gap}px;height:${cell - gap}px`;
+    g.appendChild(d);
+  }
+  for (const p of (pages[pageIx] || [])) {
+    const boxW = p.sc * cell - gap * 2, boxH = p.sr * cell - gap * 2 - labelH * 1.5;
+    let w = p.coin.width_in * L.pxPerIn, h = w * (p.coin.aspect || 1);
+    const f = Math.min(1, boxW / w, boxH / h);   // never spill out of its cells
+    w *= f; h *= f;
+    const el = document.createElement('div');
+    el.className = 'coin';
+    el.style.cssText = `left:${p.c * cell}px;top:${p.r * cell}px;width:${p.sc * cell}px;height:${p.sr * cell}px`;
+    el.innerHTML = `<div class="persp"><div class="flipper" style="width:${w}px;height:${h}px">
+        <img class="face front" draggable="false" src="${src(p.coin, 'front')}">
+        <img class="face back" draggable="false" src="${src(p.coin, 'back')}"></div></div>` +
+      (labelH ? `<div class="label" style="font-size:${labelH}px;line-height:1.5"></div>` : '');
+    if (labelH) el.querySelector('.label').textContent = p.coin.name || '';
+    el.addEventListener('click', () => openZoom(p.coin));
+    p.flipper = el.querySelector('.flipper');
+    g.appendChild(el);
+  }
+  const dots = $('dots');
+  dots.innerHTML = pages.length > 1 ? pages.map((_, i) => `<i class="${i === pageIx ? 'on' : ''}"></i>`).join('') : '';
+}
+
+function flip() {
+  const style = state.settings.flip_style || 'wave';
+  const spare = Math.max(0, (state.settings.flip_interval || 5) - 1.3);
+  for (const p of (pages[pageIx] || [])) {
+    let delay = 0;
+    if (style === 'wave') delay = Math.min((p.c + p.r) * 0.09, spare);
+    else if (style === 'random') delay = Math.random() * Math.min(spare, 3);
+    else if (style === 'checker' && (p.c + p.r) % 2 !== tick % 2) continue;
+    p.flipper.style.transitionDelay = delay + 's';
+    p.flipper.classList.toggle('flipped');
+  }
+  tick++;
+}
+
+function nextPage() {
+  if ($('zoom').classList.contains('open') || $('setup').classList.contains('open')) return;
+  const g = $('grid');
+  g.classList.add('fade');
+  setTimeout(() => { pageIx = (pageIx + 1) % pages.length; drawPage(); g.classList.remove('fade'); }, 620);
+}
+
+/* ---------- tap / click a coin: enlarge with both sides side by side ---------- */
+function openZoom(coin) {
+  const W = innerWidth, H = innerHeight, a = coin.aspect || 1;
+  const sides = coin.has_back ? ['front', 'back'] : ['front'];
+  const n = sides.length, gap = Math.round(Math.min(W, H) * 0.05);
+  const textH = H * 0.2;                      // room for captions, name, notes
+  // both sides next to one another, as large as the screen allows
+  const w = Math.round(Math.min((W * 0.92 - gap * (n - 1)) / n, (H - textH) / a)), h = Math.round(w * a);
+  const box = $('zoomSides');
+  box.style.gap = gap + 'px';
+  box.innerHTML = sides.map(side =>
+    `<figure><img draggable="false" src="${src(coin, side)}" style="width:${w}px;height:${h}px">` +
+    (n > 1 ? `<figcaption>${side}</figcaption>` : '') + `</figure>`).join('');
+  $('zoomName').textContent = coin.name || '';
+  $('zoomNotes').textContent = coin.notes || '';
+  const z = $('zoom');
+  z.classList.add('open');
+  requestAnimationFrame(() => requestAnimationFrame(() => z.classList.add('show')));
+  clearTimeout(zoomTimer);
+  zoomTimer = setTimeout(closeZoom, 45000);   // go back to the grid if left alone
+}
+function closeZoom() {
+  const z = $('zoom');
+  clearTimeout(zoomTimer);
+  z.classList.remove('show');
+  setTimeout(() => z.classList.remove('open'), 260);
+}
+$('zoom').addEventListener('click', closeZoom);
+
+/* ---------- this-screen setup ---------- */
+function refreshSetup() {
+  const d = diagonal();
+  $('diagVal').textContent = d ? d.toFixed(1) + '"' : 'not set';
+  $('presets').innerHTML = PRESETS.map(p => `<button data-d="${p}" class="${Math.abs(p - d) < 0.05 ? 'on' : ''}">${p}"</button>`).join('');
+  $('modes').innerHTML = Object.keys(MODES).map(m => `<button data-m="${m}" class="${m === local.mode ? 'on' : ''}">${MODES[m][0]}</button>`).join('');
+  $('modeHelp').textContent = MODES[local.mode][1];
+  const card = $('card');
+  card.style.display = L.ppi ? 'flex' : 'none';
+  card.style.width = 3.37 * L.ppi + 'px';
+  card.style.height = 2.125 * L.ppi + 'px';
+  const size = L.ppi ? `${(screen.width / L.ppi).toFixed(1)}" × ${(screen.height / L.ppi).toFixed(1)}" screen · ` : '';
+  const scale = L.scale ? `coins at <b>${Math.round(L.scale * 100)}%</b> of life size` : 'screen size not set, so the grid just fills the screen';
+  $('info').innerHTML = `${screen.width} × ${screen.height} px · ${size}grid ${L.cols} × ${L.rows} · ${scale}`;
+}
+function setDiag(d) {
+  local.diag = Math.round(Math.min(150, Math.max(5, d)) * 10) / 10;
+  store.set('coin.diag', local.diag);
+  render();
+}
+function openSetup() { store.set('coin.setupSeen', '1'); $('setup').classList.add('open'); refreshSetup(); }
+$('gear').addEventListener('click', openSetup);
+$('done').addEventListener('click', () => $('setup').classList.remove('open'));
+$('setup').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.d) setDiag(parseFloat(b.dataset.d));
+  else if (b.dataset.step) setDiag((diagonal() || 24) + parseFloat(b.dataset.step));
+  else if ('m' in b.dataset) { local.mode = b.dataset.m; store.set('coin.mode', local.mode || null); render(); }
+});
+
+/* ---------- housekeeping ---------- */
+async function refresh(force) {
+  try {
+    if (!force) {
+      const v = await (await fetch('/api/version')).json();
+      if (v.version === state.version) return;
+    }
+    state = await (await fetch('/api/state')).json();
+    render();
+    if (!diagonal() && !store.get('coin.setupSeen') && state.coins.length) openSetup();
+  } catch (e) { /* server restarting; try again next time */ }
+}
+let resizeT;
+addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (state.version >= 0) render(); }, 150); });
+addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeZoom(); $('setup').classList.remove('open'); }
+  if (e.key === 's' || e.key === 'S') openSetup();
+});
+let idleT;
+addEventListener('mousemove', () => { document.body.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => document.body.classList.add('idle'), 3000); });
+addEventListener('contextmenu', e => e.preventDefault());
+async function keepAwake() { try { await navigator.wakeLock.request('screen'); } catch (e) {} }
+document.addEventListener('visibilitychange', () => { if (!document.hidden) keepAwake(); });
+keepAwake();
+refresh(true);
+setInterval(refresh, 4000);
+</script>
+</body>
+</html>

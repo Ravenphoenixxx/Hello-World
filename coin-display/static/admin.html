@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coin Display – Admin</title>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; background:#14171b; color:#e8eaed; }
+  header { padding:14px 16px; background:#1c2026; position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:10px; border-bottom:1px solid #2c323a; }
+  header h1 { font-size:18px; margin:0; flex:1; }
+  header a { color:#d9b25f; text-decoration:none; font-size:14px; }
+  main { max-width:760px; margin:0 auto; padding:14px 16px 60px; }
+  section { background:#1c2026; border-radius:14px; padding:16px; margin-bottom:16px; }
+  h2 { font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:#9aa3ad; margin:0 0 12px; }
+  label { display:block; font-size:13px; color:#aab2bb; margin:10px 0 4px; }
+  input[type=text], input[type=number], select, textarea { width:100%; padding:11px 12px; border-radius:9px; border:1px solid #39404a; background:#12151a; color:#e8eaed; font:inherit; }
+  input[type=file] { width:100%; color:#aab2bb; font-size:14px; }
+  input[type=range] { width:100%; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .check { display:flex; align-items:center; gap:8px; margin:12px 0 0; color:#e8eaed; font-size:15px; }
+  .check input { width:20px; height:20px; }
+  button, .btn { font:inherit; min-height:44px; padding:0 16px; border-radius:9px; border:1px solid #39404a; background:#2a2f36; color:#e8eaed; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+  button.primary { background:#d9b25f; border-color:#d9b25f; color:#161616; font-weight:600; }
+  button.danger { color:#ff8a80; }
+  button:disabled { opacity:.5; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+  .hint { font-size:13px; color:#8b949e; margin:6px 0 0; }
+  .coin { display:flex; gap:10px; align-items:center; padding:10px 0; border-top:1px solid #2c323a; }
+  .coin:first-of-type { border-top:0; }
+  .coin.hidden .thumbs, .coin.hidden .meta { opacity:.4; }
+  .thumbs { display:flex; gap:4px; flex:none; }
+  .thumbs img, .thumbs i { width:52px; height:52px; object-fit:contain; background:#262b31; border-radius:8px; display:block; }
+  .meta { flex:1; min-width:0; }
+  .meta b { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .meta span { font-size:13px; color:#8b949e; }
+  .coin button { min-height:40px; min-width:40px; padding:0 10px; }
+  dialog { border:0; border-radius:14px; background:#1c2026; color:#e8eaed; width:min(560px,94vw); max-height:92vh; padding:18px; }
+  dialog::backdrop { background:rgba(0,0,0,.7); }
+  .preview { display:flex; gap:10px; justify-content:center; margin-bottom:6px; }
+  .preview img { width:46%; max-height:190px; object-fit:contain; border-radius:10px;
+     background:repeating-conic-gradient(#30363d 0 25%, #242a30 0 50%) 0 0/20px 20px; }
+  #toast { position:fixed; left:50%; bottom:18px; transform:translateX(-50%); background:#d9b25f; color:#161616; padding:10px 18px; border-radius:22px; font-weight:600; display:none; z-index:50; max-width:90vw; }
+  #toast.err { background:#ff8a80; }
+</style>
+</head>
+<body>
+<header><h1>Coin Display</h1><a href="/" target="_blank">Open display ↗</a></header>
+<main>
+  <section>
+    <h2>Add a coin</h2>
+    <form id="addForm">
+      <label>Name</label><input type="text" name="name" maxlength="80" placeholder="e.g. 1st Battalion, 2019">
+      <div class="two">
+        <div><label>Front photo</label><input type="file" name="front" accept="image/*" required></div>
+        <div><label>Back photo (optional)</label><input type="file" name="back" accept="image/*"></div>
+      </div>
+      <div class="two">
+        <div><label>Real width (inches)</label><input type="number" name="width_in" value="2" min="0.5" max="20" step="0.05" inputmode="decimal"></div>
+        <div><label>Shape</label>
+          <select name="shape">
+            <option value="round">Round</option>
+            <option value="custom">Odd shape (cut out background)</option>
+            <option value="none">Use photo as-is</option>
+          </select></div>
+      </div>
+      <label>Notes (shown when the coin is enlarged)</label><input type="text" name="notes" maxlength="300">
+      <p class="hint">Photograph each side straight-on against a plain, contrasting background. Measure the coin at its widest point.</p>
+      <div class="actions"><button class="primary" id="addBtn">Add coin</button></div>
+    </form>
+  </section>
+
+  <section>
+    <h2>Coins <span id="count"></span></h2>
+    <div id="list"></div>
+  </section>
+
+  <section>
+    <h2>Display settings</h2>
+    <form id="setForm">
+      <label>Title (leave empty for none)</label><input type="text" name="title" maxlength="80">
+      <div class="two">
+        <div><label>Background</label><select name="theme">
+          <option value="felt">Green felt</option><option value="walnut">Walnut</option><option value="navy">Navy</option>
+          <option value="slate">Slate</option><option value="black">Black</option><option value="light">Light</option></select></div>
+        <div><label>Flip style</label><select name="flip_style">
+          <option value="wave">Wave</option><option value="all">All together</option>
+          <option value="random">Random</option><option value="checker">Checkerboard</option></select></div>
+      </div>
+      <div class="two">
+        <div><label>Seconds between flips</label><input type="number" name="flip_interval" min="2" max="120"></div>
+        <div><label>Seconds per page</label><input type="number" name="page_seconds" min="5" max="3600"></div>
+      </div>
+      <label class="check"><input type="checkbox" name="show_labels"> Show coin names under coins</label>
+
+      <h2 style="margin-top:22px">Grid and screen</h2>
+      <div class="two">
+        <div><label>Columns</label><input type="number" name="cols" min="1" max="12"></div>
+        <div><label>Rows</label><input type="number" name="rows" min="1" max="12"></div>
+      </div>
+      <div class="two">
+        <div><label>Cell size (inches)</label><input type="number" name="cell_in" min="1" max="8" step="0.1" inputmode="decimal"></div>
+        <div><label>Default screen diagonal (inches)</label><input type="number" name="diagonal_in" min="0" max="150" step="0.1" inputmode="decimal"></div>
+      </div>
+      <label>How the grid adapts to the screen</label>
+      <select name="scale_mode">
+        <option value="fit">Fit grid – life-size if it fits, otherwise shrink evenly</option>
+        <option value="true">True size – always life-size; rows/columns adapt to the screen</option>
+        <option value="fill">Fill screen – stretch the grid to fill the screen</option>
+      </select>
+      <p class="hint">Each screen can also be set up on its own: tap the ⚙ in the corner of the display to enter that screen's size and layout. A screen's own setting wins over the default here (0 = not set).</p>
+      <div class="actions"><button class="primary">Save settings</button></div>
+    </form>
+  </section>
+
+  <section>
+    <h2>Backup</h2>
+    <p class="hint" style="margin-top:0">Downloads every photo and all settings as one zip. To restore, unzip it into the app's <code>data</code> folder.</p>
+    <div class="actions"><a class="btn" href="/api/backup">Download backup</a></div>
+  </section>
+</main>
+
+<dialog id="dlg">
+  <form id="editForm" method="dialog">
+    <div class="preview"><img id="pFront" alt="front"><img id="pBack" alt="back"></div>
+    <label>Name</label><input type="text" name="name" maxlength="80">
+    <label>Notes</label><input type="text" name="notes" maxlength="300">
+    <div class="two">
+      <div><label>Real width (inches)</label><input type="number" name="width_in" min="0.5" max="20" step="0.05" inputmode="decimal"></div>
+      <div><label>Shape</label><select name="shape">
+        <option value="round">Round</option><option value="custom">Odd shape (cut out background)</option><option value="none">Use photo as-is</option></select></div>
+    </div>
+    <label>Background removal tolerance: <span id="tolVal"></span></label>
+    <input type="range" name="tolerance" min="0" max="100">
+    <p class="hint">Raise it if background is left behind; lower it if parts of the coin disappear. The preview above updates when you let go.</p>
+    <div class="two">
+      <div><label>Cells wide</label><select name="span_cols"><option value="0">Automatic</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+      <div><label>Cells tall</label><select name="span_rows"><option value="0">Automatic</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+    </div>
+    <div class="two">
+      <div><label>Replace front photo</label><input type="file" id="repFront" accept="image/*"></div>
+      <div><label>Replace / add back photo</label><input type="file" id="repBack" accept="image/*"></div>
+    </div>
+    <label class="check"><input type="checkbox" name="hidden"> Hide from the display</label>
+    <div class="actions">
+      <button type="button" class="primary" id="saveBtn">Save</button>
+      <button type="button" id="cancelBtn">Close</button>
+      <button type="button" class="danger" id="delBtn" style="margin-left:auto">Delete</button>
+    </div>
+  </form>
+</dialog>
+<div id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let coins = [], editing = null;
+
+function toast(msg, err) {
+  const t = $('toast'); t.textContent = msg; t.className = err ? 'err' : ''; t.style.display = 'block';
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', err ? 5000 : 2200);
+}
+async function api(method, url, body) {
+  const opt = { method };
+  if (body instanceof FormData) opt.body = body;
+  else if (body) { opt.body = JSON.stringify(body); opt.headers = { 'Content-Type': 'application/json' }; }
+  const res = await fetch(url, opt);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { toast(data.error || 'Something went wrong (' + res.status + ')', true); throw new Error(data.error || res.status); }
+  return data;
+}
+const img = (c, side) => `/img/${c.id}/${side}?v=${c.v}`;
+
+async function load() {
+  const s = await api('GET', '/api/state');
+  coins = s.coins;
+  const f = $('setForm');
+  for (const [k, v] of Object.entries(s.settings)) {
+    const el = f.elements[k];
+    if (!el) continue;
+    if (el.type === 'checkbox') el.checked = !!v; else el.value = v;
+  }
+  drawList();
+}
+function drawList() {
+  $('count').textContent = coins.length ? `(${coins.length})` : '';
+  const list = $('list');
+  list.innerHTML = coins.length ? '' : '<p class="hint">No coins yet. Add your first one above.</p>';
+  coins.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.className = 'coin' + (c.hidden ? ' hidden' : '');
+    const span = (c.span_cols || c.span_rows) ? ` · ${c.span_cols || 'auto'}×${c.span_rows || 'auto'} cells` : '';
+    row.innerHTML = `<div class="thumbs"><img src="${img(c, 'front')}" alt="">${c.has_back ? `<img src="${img(c, 'back')}" alt="">` : '<i></i>'}</div>
+      <div class="meta"><b></b><span>${c.width_in}" wide${span}${c.hidden ? ' · hidden' : ''}${c.has_back ? '' : ' · no back'}</span></div>
+      <button data-a="up" ${i === 0 ? 'disabled' : ''} aria-label="Move up">↑</button>
+      <button data-a="down" ${i === coins.length - 1 ? 'disabled' : ''} aria-label="Move down">↓</button>
+      <button data-a="edit">Edit</button>`;
+    row.querySelector('b').textContent = c.name || '(unnamed)';
+    row.addEventListener('click', e => {
+      const a = e.target.closest('button')?.dataset.a;
+      if (a === 'edit') openEdit(c);
+      else if (a === 'up' || a === 'down') move(i, a === 'up' ? -1 : 1);
+    });
+    list.appendChild(row);
+  });
+}
+async function move(i, d) {
+  const j = i + d;
+  [coins[i], coins[j]] = [coins[j], coins[i]];
+  drawList();
+  await api('POST', '/api/order', { ids: coins.map(c => c.id) });
+}
+
+$('addForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('addBtn');
+  btn.disabled = true; btn.textContent = 'Uploading…';
+  try {
+    await api('POST', '/api/coins', new FormData(e.target));
+    e.target.reset();
+    toast('Coin added');
+    await load();
+  } catch (err) {} finally { btn.disabled = false; btn.textContent = 'Add coin'; }
+});
+
+$('setForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = e.target, body = {};
+  for (const el of f.elements) if (el.name) body[el.name] = el.type === 'checkbox' ? el.checked : el.value;
+  await api('PUT', '/api/settings', body);
+  toast('Settings saved');
+});
+
+function openEdit(c) {
+  editing = c;
+  const f = $('editForm');
+  for (const k of ['name', 'notes', 'width_in', 'shape', 'tolerance', 'span_cols', 'span_rows']) f.elements[k].value = c[k];
+  f.elements.hidden.checked = !!c.hidden;
+  $('repFront').value = $('repBack').value = '';
+  showPreview();
+  $('dlg').showModal();
+}
+function showPreview() {
+  const c = editing;
+  $('tolVal').textContent = $('editForm').elements.tolerance.value;
+  $('pFront').src = img(c, 'front');
+  $('pBack').style.display = c.has_back ? '' : 'none';
+  if (c.has_back) $('pBack').src = img(c, 'back');
+}
+function adopt(updated) {
+  coins[coins.findIndex(c => c.id === updated.id)] = updated;
+  editing = updated;
+  showPreview(); drawList();
+}
+const ef = $('editForm');
+ef.elements.tolerance.addEventListener('input', () => $('tolVal').textContent = ef.elements.tolerance.value);
+// live re-cut of the background when shape / tolerance change
+for (const k of ['tolerance', 'shape']) ef.elements[k].addEventListener('change', async () =>
+  adopt(await api('PATCH', '/api/coins/' + editing.id, { tolerance: ef.elements.tolerance.value, shape: ef.elements.shape.value })));
+for (const [id, side] of [['repFront', 'front'], ['repBack', 'back']]) $(id).addEventListener('change', async e => {
+  if (!e.target.files[0]) return;
+  const fd = new FormData(); fd.append('file', e.target.files[0]);
+  adopt(await api('POST', `/api/coins/${editing.id}/image/${side}`, fd));
+  toast('Photo replaced');
+});
+$('saveBtn').addEventListener('click', async () => {
+  const body = {};
+  for (const k of ['name', 'notes', 'width_in', 'shape', 'tolerance', 'span_cols', 'span_rows']) body[k] = ef.elements[k].value;
+  body.hidden = ef.elements.hidden.checked;
+  adopt(await api('PATCH', '/api/coins/' + editing.id, body));
+  $('dlg').close(); toast('Saved');
+});
+$('cancelBtn').addEventListener('click', () => $('dlg').close());
+$('delBtn').addEventListener('click', async () => {
+  if (!confirm(`Delete "${editing.name || 'this coin'}" and its photos? This cannot be undone.`)) return;
+  await api('DELETE', '/api/coins/' + editing.id);
+  $('dlg').close(); toast('Deleted'); load();
+});
+load();
+</script>
+</body>
+</html>
