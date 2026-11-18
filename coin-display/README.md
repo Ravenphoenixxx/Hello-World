@@ -61,6 +61,10 @@ Any touchscreen monitor that works as a normal touch input device will do.
   tolerance slider in Edit), or *Use photo as-is*. Transparent PNGs are kept as they are.
 - Photograph coins straight-on against a plain, contrasting background.
 - Edit, reorder, hide, delete, or replace one side from the admin page.
+- **Add many coins at once:** pick all the photos together and they are matched into
+  coins by file name (`coin1` + `coin1a`, `coin1a` + `coin1b`, `half life front` +
+  `half life back`; also obverse/reverse, heads/tails, f/b). The list can be corrected
+  (swap, split, join, rename, width) before uploading.
 
 ## Data and backup
 
