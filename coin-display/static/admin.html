@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coin Display – Admin</title>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; background:#14171b; color:#e8eaed; }
+  header { padding:14px 16px; background:#1c2026; position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:10px; border-bottom:1px solid #2c323a; }
+  header h1 { font-size:18px; margin:0; flex:1; }
+  header a { color:#d9b25f; text-decoration:none; font-size:14px; }
+  main { max-width:760px; margin:0 auto; padding:14px 16px 60px; }
+  section { background:#1c2026; border-radius:14px; padding:16px; margin-bottom:16px; }
+  h2 { font-size:13px; letter-spacing:.12em; text-transform:uppercase; color:#9aa3ad; margin:0 0 12px; }
+  label { display:block; font-size:13px; color:#aab2bb; margin:10px 0 4px; }
+  input[type=text], input[type=number], select, textarea { width:100%; padding:11px 12px; border-radius:9px; border:1px solid #39404a; background:#12151a; color:#e8eaed; font:inherit; }
+  input[type=file] { width:100%; color:#aab2bb; font-size:14px; }
+  input[type=range] { width:100%; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .check { display:flex; align-items:center; gap:8px; margin:12px 0 0; color:#e8eaed; font-size:15px; }
+  .check input { width:20px; height:20px; }
+  button, .btn { font:inherit; min-height:44px; padding:0 16px; border-radius:9px; border:1px solid #39404a; background:#2a2f36; color:#e8eaed; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+  button.primary { background:#d9b25f; border-color:#d9b25f; color:#161616; font-weight:600; }
+  button.danger { color:#ff8a80; }
+  button:disabled { opacity:.5; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+  .hint { font-size:13px; color:#8b949e; margin:6px 0 0; }
+  .coin { display:flex; gap:10px; align-items:center; padding:10px 0; border-top:1px solid #2c323a; }
+  .coin:first-of-type { border-top:0; }
+  .coin.hidden .thumbs, .coin.hidden .meta { opacity:.4; }
+  .thumbs { display:flex; gap:4px; flex:none; }
+  .thumbs img, .thumbs i { width:52px; height:52px; object-fit:contain; background:#262b31; border-radius:8px; display:block; }
+  .meta { flex:1; min-width:0; }
+  .meta b { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .meta span { font-size:13px; color:#8b949e; }
+  .coin button { min-height:40px; min-width:40px; padding:0 10px; }
+  dialog { border:0; border-radius:14px; background:#1c2026; color:#e8eaed; width:min(560px,94vw); max-height:92vh; padding:18px; }
+  dialog::backdrop { background:rgba(0,0,0,.7); }
+  .preview { display:flex; gap:10px; justify-content:center; margin-bottom:6px; }
+  .preview img { width:46%; max-height:190px; object-fit:contain; border-radius:10px;
+     background:repeating-conic-gradient(#30363d 0 25%, #242a30 0 50%) 0 0/20px 20px; }
+  .bulk-row { display:grid; grid-template-columns:auto 1fr; gap:8px 10px; align-items:center; padding:12px 0; border-top:1px solid #2c323a; }
+  .bulk-row .thumbs img, .bulk-row .thumbs i { width:60px; height:60px; }
+  .bulk-row .thumbs i { display:flex; align-items:center; justify-content:center; font:normal 11px system-ui; color:#8b949e; }
+  .bulk-row .fields { min-width:0; display:grid; grid-template-columns:1fr 84px; gap:6px; }
+  .bulk-row .files { grid-column:1 / -1; font-size:12px; color:#8b949e; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bulk-row .btns { grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:6px; }
+  .bulk-row .btns button { min-height:34px; padding:0 10px; font-size:13px; }
+  .bulk-row.done { opacity:.45; } .bulk-row.fail .files { color:#ff8a80; }
+  #toast { position:fixed; left:50%; bottom:18px; transform:translateX(-50%); background:#d9b25f; color:#161616; padding:10px 18px; border-radius:22px; font-weight:600; display:none; z-index:50; max-width:90vw; }
+  #toast.err { background:#ff8a80; }
+</style>
+</head>
+<body>
+<header><h1>Coin Display</h1><a href="/" target="_blank">Open display ↗</a></header>
+<main>
+  <section>
+    <h2>Add a coin</h2>
+    <form id="addForm">
+      <label>Name</label><input type="text" name="name" maxlength="80" placeholder="e.g. 1st Battalion, 2019">
+      <div class="two">
+        <div><label>Front photo</label><input type="file" name="front" accept="image/*" required></div>
+        <div><label>Back photo (optional)</label><input type="file" name="back" accept="image/*"></div>
+      </div>
+      <div class="two">
+        <div><label>Real width (inches)</label><input type="number" name="width_in" value="2" min="0.5" max="20" step="0.05" inputmode="decimal"></div>
+        <div><label>Shape</label>
+          <select name="shape">
+            <option value="round">Round</option>
+            <option value="custom">Odd shape (cut out background)</option>
+            <option value="none">Use photo as-is</option>
+          </select></div>
+      </div>
+      <label>Notes (shown when the coin is enlarged)</label><input type="text" name="notes" maxlength="300">
+      <p class="hint">Photograph each side straight-on against a plain, contrasting background. Measure the coin at its widest point.</p>
+      <div class="actions"><button class="primary" id="addBtn">Add coin</button></div>
+    </form>
+  </section>
+
+  <section>
+    <h2>Add many coins at once</h2>
+    <label>Choose all the photos (fronts and backs together)</label>
+    <input type="file" id="bulkFiles" accept="image/*" multiple>
+    <p class="hint">Photos are matched into coins by file name: <code>coin1</code> + <code>coin1a</code>, <code>coin1a</code> + <code>coin1b</code>, or
+      <code>half life front</code> + <code>half life back</code>. Check the list below and fix anything before uploading.</p>
+    <div id="bulkOpts" style="display:none">
+      <div class="two">
+        <div><label>Real width for all (inches)</label><input type="number" id="bulkWidth" value="2" min="0.5" max="20" step="0.05" inputmode="decimal"></div>
+        <div><label>Shape for all</label><select id="bulkShape">
+          <option value="round">Round</option><option value="custom">Odd shape (cut out background)</option><option value="none">Use photo as-is</option></select></div>
+      </div>
+      <label class="check"><input type="checkbox" id="bulkOrder"> Pair leftover photos in order (1st = front, 2nd = back)</label>
+      <p class="hint" id="bulkSummary"></p>
+      <div id="bulkList"></div>
+      <div class="actions">
+        <button class="primary" id="bulkGo">Upload</button>
+        <button type="button" id="bulkClear">Clear</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Coins <span id="count"></span></h2>
+    <div id="list"></div>
+  </section>
+
+  <section>
+    <h2>Display settings</h2>
+    <form id="setForm">
+      <label>Title (leave empty for none)</label><input type="text" name="title" maxlength="80">
+      <div class="two">
+        <div><label>Background</label><select name="theme">
+          <option value="felt">Green felt</option><option value="walnut">Walnut</option><option value="navy">Navy</option>
+          <option value="slate">Slate</option><option value="black">Black</option><option value="light">Light</option></select></div>
+        <div><label>Flip style</label><select name="flip_style">
+          <option value="wave">Wave</option><option value="all">All together</option>
+          <option value="random">Random</option><option value="checker">Checkerboard</option></select></div>
+      </div>
+      <div class="two">
+        <div><label>Seconds between flips</label><input type="number" name="flip_interval" min="2" max="120"></div>
+        <div><label>Seconds per page</label><input type="number" name="page_seconds" min="5" max="3600"></div>
+      </div>
+      <label class="check"><input type="checkbox" name="show_labels"> Show coin names under coins</label>
+
+      <h2 style="margin-top:22px">Grid and screen</h2>
+      <div class="two">
+        <div><label>Columns</label><input type="number" name="cols" min="1" max="12"></div>
+        <div><label>Rows</label><input type="number" name="rows" min="1" max="12"></div>
+      </div>
+      <div class="two">
+        <div><label>Cell size (inches)</label><input type="number" name="cell_in" min="1" max="8" step="0.1" inputmode="decimal"></div>
+        <div><label>Default screen diagonal (inches)</label><input type="number" name="diagonal_in" min="0" max="150" step="0.1" inputmode="decimal"></div>
+      </div>
+      <label>How the grid adapts to the screen</label>
+      <select name="scale_mode">
+        <option value="fit">Fit grid – life-size if it fits, otherwise shrink evenly</option>
+        <option value="true">True size – always life-size; rows/columns adapt to the screen</option>
+        <option value="fill">Fill screen – stretch the grid to fill the screen</option>
+      </select>
+      <p class="hint">Each screen can also be set up on its own: tap the ⚙ in the corner of the display to enter that screen's size and layout. A screen's own setting wins over the default here (0 = not set).</p>
+      <div class="actions"><button class="primary">Save settings</button></div>
+    </form>
+  </section>
+
+  <section>
+    <h2>Backup</h2>
+    <p class="hint" style="margin-top:0">Downloads every photo and all settings as one zip. To restore, unzip it into the app's <code>data</code> folder.</p>
+    <div class="actions"><a class="btn" href="/api/backup">Download backup</a></div>
+  </section>
+</main>
+
+<dialog id="dlg">
+  <form id="editForm" method="dialog">
+    <div class="preview"><img id="pFront" alt="front"><img id="pBack" alt="back"></div>
+    <label>Name</label><input type="text" name="name" maxlength="80">
+    <label>Notes</label><input type="text" name="notes" maxlength="300">
+    <div class="two">
+      <div><label>Real width (inches)</label><input type="number" name="width_in" min="0.5" max="20" step="0.05" inputmode="decimal"></div>
+      <div><label>Shape</label><select name="shape">
+        <option value="round">Round</option><option value="custom">Odd shape (cut out background)</option><option value="none">Use photo as-is</option></select></div>
+    </div>
+    <label>Background removal tolerance: <span id="tolVal"></span></label>
+    <input type="range" name="tolerance" min="0" max="100">
+    <p class="hint">Raise it if background is left behind; lower it if parts of the coin disappear. The preview above updates when you let go.</p>
+    <div class="two">
+      <div><label>Cells wide</label><select name="span_cols"><option value="0">Automatic</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+      <div><label>Cells tall</label><select name="span_rows"><option value="0">Automatic</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+    </div>
+    <div class="two">
+      <div><label>Replace front photo</label><input type="file" id="repFront" accept="image/*"></div>
+      <div><label>Replace / add back photo</label><input type="file" id="repBack" accept="image/*"></div>
+    </div>
+    <label class="check"><input type="checkbox" name="hidden"> Hide from the display</label>
+    <div class="actions">
+      <button type="button" class="primary" id="saveBtn">Save</button>
+      <button type="button" id="cancelBtn">Close</button>
+      <button type="button" class="danger" id="delBtn" style="margin-left:auto">Delete</button>
+    </div>
+  </form>
+</dialog>
+<div id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let coins = [], editing = null;
+
+function toast(msg, err) {
+  const t = $('toast'); t.textContent = msg; t.className = err ? 'err' : ''; t.style.display = 'block';
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.style.display = 'none', err ? 5000 : 2200);
+}
+async function api(method, url, body) {
+  const opt = { method };
+  if (body instanceof FormData) opt.body = body;
+  else if (body) { opt.body = JSON.stringify(body); opt.headers = { 'Content-Type': 'application/json' }; }
+  const res = await fetch(url, opt);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { toast(data.error || 'Something went wrong (' + res.status + ')', true); throw new Error(data.error || res.status); }
+  return data;
+}
+const img = (c, side) => `/img/${c.id}/${side}?v=${c.v}`;
+
+async function load() {
+  const s = await api('GET', '/api/state');
+  coins = s.coins;
+  const f = $('setForm');
+  for (const [k, v] of Object.entries(s.settings)) {
+    const el = f.elements[k];
+    if (!el) continue;
+    if (el.type === 'checkbox') el.checked = !!v; else el.value = v;
+  }
+  drawList();
+}
+function drawList() {
+  $('count').textContent = coins.length ? `(${coins.length})` : '';
+  const list = $('list');
+  list.innerHTML = coins.length ? '' : '<p class="hint">No coins yet. Add your first one above.</p>';
+  coins.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.className = 'coin' + (c.hidden ? ' hidden' : '');
+    const span = (c.span_cols || c.span_rows) ? ` · ${c.span_cols || 'auto'}×${c.span_rows || 'auto'} cells` : '';
+    row.innerHTML = `<div class="thumbs"><img src="${img(c, 'front')}" alt="">${c.has_back ? `<img src="${img(c, 'back')}" alt="">` : '<i></i>'}</div>
+      <div class="meta"><b></b><span>${c.width_in}" wide${span}${c.hidden ? ' · hidden' : ''}${c.has_back ? '' : ' · no back'}</span></div>
+      <button data-a="up" ${i === 0 ? 'disabled' : ''} aria-label="Move up">↑</button>
+      <button data-a="down" ${i === coins.length - 1 ? 'disabled' : ''} aria-label="Move down">↓</button>
+      <button data-a="edit">Edit</button>`;
+    row.querySelector('b').textContent = c.name || '(unnamed)';
+    row.addEventListener('click', e => {
+      const a = e.target.closest('button')?.dataset.a;
+      if (a === 'edit') openEdit(c);
+      else if (a === 'up' || a === 'down') move(i, a === 'up' ? -1 : 1);
+    });
+    list.appendChild(row);
+  });
+}
+async function move(i, d) {
+  const j = i + d;
+  [coins[i], coins[j]] = [coins[j], coins[i]];
+  drawList();
+  await api('POST', '/api/order', { ids: coins.map(c => c.id) });
+}
+
+$('addForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('addBtn');
+  btn.disabled = true; btn.textContent = 'Uploading…';
+  try {
+    await api('POST', '/api/coins', new FormData(e.target));
+    e.target.reset();
+    toast('Coin added');
+    await load();
+  } catch (err) {} finally { btn.disabled = false; btn.textContent = 'Add coin'; }
+});
+
+$('setForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const f = e.target, body = {};
+  for (const el of f.elements) if (el.name) body[el.name] = el.type === 'checkbox' ? el.checked : el.value;
+  await api('PUT', '/api/settings', body);
+  toast('Settings saved');
+});
+
+function openEdit(c) {
+  editing = c;
+  const f = $('editForm');
+  for (const k of ['name', 'notes', 'width_in', 'shape', 'tolerance', 'span_cols', 'span_rows']) f.elements[k].value = c[k];
+  f.elements.hidden.checked = !!c.hidden;
+  $('repFront').value = $('repBack').value = '';
+  showPreview();
+  $('dlg').showModal();
+}
+function showPreview() {
+  const c = editing;
+  $('tolVal').textContent = $('editForm').elements.tolerance.value;
+  $('pFront').src = img(c, 'front');
+  $('pBack').style.display = c.has_back ? '' : 'none';
+  if (c.has_back) $('pBack').src = img(c, 'back');
+}
+function adopt(updated) {
+  coins[coins.findIndex(c => c.id === updated.id)] = updated;
+  editing = updated;
+  showPreview(); drawList();
+}
+const ef = $('editForm');
+ef.elements.tolerance.addEventListener('input', () => $('tolVal').textContent = ef.elements.tolerance.value);
+// live re-cut of the background when shape / tolerance change
+for (const k of ['tolerance', 'shape']) ef.elements[k].addEventListener('change', async () =>
+  adopt(await api('PATCH', '/api/coins/' + editing.id, { tolerance: ef.elements.tolerance.value, shape: ef.elements.shape.value })));
+for (const [id, side] of [['repFront', 'front'], ['repBack', 'back']]) $(id).addEventListener('change', async e => {
+  if (!e.target.files[0]) return;
+  const fd = new FormData(); fd.append('file', e.target.files[0]);
+  adopt(await api('POST', `/api/coins/${editing.id}/image/${side}`, fd));
+  toast('Photo replaced');
+});
+$('saveBtn').addEventListener('click', async () => {
+  const body = {};
+  for (const k of ['name', 'notes', 'width_in', 'shape', 'tolerance', 'span_cols', 'span_rows']) body[k] = ef.elements[k].value;
+  body.hidden = ef.elements.hidden.checked;
+  adopt(await api('PATCH', '/api/coins/' + editing.id, body));
+  $('dlg').close(); toast('Saved');
+});
+$('cancelBtn').addEventListener('click', () => $('dlg').close());
+$('delBtn').addEventListener('click', async () => {
+  if (!confirm(`Delete "${editing.name || 'this coin'}" and its photos? This cannot be undone.`)) return;
+  await api('DELETE', '/api/coins/' + editing.id);
+  $('dlg').close(); toast('Deleted'); load();
+});
+/* ---------- bulk upload: match photos into coins by file name ---------- */
+const SIDE_WORDS = { front: 0, obverse: 0, heads: 0, face: 0, back: 2, reverse: 2, rear: 2, tails: 2 };
+const WORDS = Object.keys(SIDE_WORDS).join('|');
+const LETTERS = { f: 0, a: 1, b: 2 };
+const normKey = t => t.toLowerCase().replace(/[\s_\-.]+/g, ' ').trim();
+
+// What side does a file name claim to be?  strong = clearly marked ("half life back");
+// weak = might just be part of the name ("coin1a", "comeback") and needs a partner to count.
+function parseSide(stem) {
+  let m;
+  if ((m = stem.match(new RegExp(`^(.*\\S)[\\s_\\-.]+\\(?(${WORDS})\\)?$`, 'i'))) ||
+      (m = stem.match(new RegExp(`^(.*\\S)\\s*\\((${WORDS})\\)$`, 'i'))))
+    return { base: m[1], rank: SIDE_WORDS[m[2].toLowerCase()], strong: true };
+  if ((m = stem.match(new RegExp(`^(${WORDS})[\\s_\\-.]+(.+)$`, 'i'))))
+    return { base: m[2], rank: SIDE_WORDS[m[1].toLowerCase()], strong: true };
+  if ((m = stem.match(new RegExp(`^(.+?)(${WORDS})$`, 'i'))))
+    return { base: m[1], rank: SIDE_WORDS[m[2].toLowerCase()], strong: false };
+  if ((m = stem.match(/^(.*[^\s_\-.])[\s_\-.]*([abf])$/i)))
+    return { base: m[1], rank: LETTERS[m[2].toLowerCase()], strong: false };
+  return null;
+}
+function prettyName(t) {
+  t = t.replace(/[_\-.]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return t === t.toLowerCase() ? t.replace(/\b[a-z]/g, c => c.toUpperCase()) : t;
+}
+function groupFiles(files, pairInOrder) {
+  const items = [...files].filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|webp|heic|heif|gif|bmp|tiff?)$/i.test(f.name)).map(file => {
+    const stem = file.name.replace(/\.[^.]+$/, '').trim();
+    return { file, stem, key: normKey(stem), cand: parseSide(stem) };
+  });
+  for (const it of items) if (it.cand) it.cand.key = normKey(it.cand.base);
+  // a weak guess only counts when another photo backs it up
+  for (const it of items) {
+    const c = it.cand;
+    it.use = !!c && (c.strong || items.some(o => o !== it &&
+      ((o.cand && o.cand.key === c.key && o.cand.rank !== c.rank) || (!(o.cand && o.cand.strong) && o.key === c.key))));
+  }
+  const groups = new Map();
+  for (const it of items) {
+    const key = it.use ? it.cand.key : it.key;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ file: it.file, rank: it.use ? it.cand.rank : -1, base: it.use ? it.cand.base : it.stem });
+  }
+  let coins = [];
+  for (const members of groups.values()) {
+    members.sort((a, b) => a.rank - b.rank || a.file.name.localeCompare(b.file.name));
+    const front = members.shift();
+    const bi = members.findIndex(m => m.rank > front.rank);
+    const back = bi >= 0 ? members.splice(bi, 1)[0] : null;
+    coins.push({ name: prettyName(front.base), front: front.file, back: back ? back.file : null });
+    for (const extra of members)   // duplicates of a side: keep as their own coins
+      coins.push({ name: prettyName(extra.file.name.replace(/\.[^.]+$/, '')), front: extra.file, back: null });
+  }
+  const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+  coins.sort(byName);
+  if (pairInOrder) {
+    const singles = coins.filter(c => !c.back);
+    coins = coins.filter(c => c.back);
+    for (let i = 0; i < singles.length; i += 2) {
+      if (singles[i + 1]) singles[i].back = singles[i + 1].front;
+      coins.push(singles[i]);
+    }
+    coins.sort(byName);
+  }
+  return coins;
+}
+
+let bulk = [], bulkBusy = false;
+const urls = new Map();
+const thumb = f => { if (!urls.has(f)) urls.set(f, URL.createObjectURL(f)); return urls.get(f); };
+function regroup() {
+  bulk = groupFiles($('bulkFiles').files, $('bulkOrder').checked);
+  for (const c of bulk) c.width = $('bulkWidth').value;
+  drawBulk();
+}
+function drawBulk() {
+  $('bulkOpts').style.display = bulk.length ? '' : 'none';
+  const todo = bulk.filter(c => !c.done), pairs = todo.filter(c => c.back).length;
+  $('bulkSummary').textContent = `${todo.length} coin${todo.length === 1 ? '' : 's'}: ${pairs} with front and back, ${todo.length - pairs} with front only.`;
+  $('bulkGo').textContent = `Upload ${todo.length} coin${todo.length === 1 ? '' : 's'}`;
+  $('bulkGo').disabled = bulkBusy || !todo.length;
+  const list = $('bulkList');
+  list.innerHTML = '';
+  bulk.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.className = 'bulk-row' + (c.done ? ' done' : '') + (c.error ? ' fail' : '');
+    row.innerHTML = `<div class="thumbs"><img src="${thumb(c.front)}" alt="front">${c.back ? `<img src="${thumb(c.back)}" alt="back">` : '<i>no back</i>'}</div>
+      <div class="fields"><input type="text" maxlength="80" aria-label="Name"><input type="number" min="0.5" max="20" step="0.05" inputmode="decimal" aria-label="Width in inches">
+        <div class="files"></div></div>
+      <div class="btns">${c.done ? '' : (c.back ? '<button data-a="swap">Swap sides</button><button data-a="split">Split</button>'
+        : (bulk[i + 1] && !bulk[i + 1].back && !bulk[i + 1].done ? '<button data-a="join">Join with next</button>' : '')) + '<button data-a="drop">Remove</button>'}</div>`;
+    const [name, width] = row.querySelectorAll('input');
+    name.value = c.name; width.value = c.width;
+    name.disabled = width.disabled = !!c.done;
+    name.addEventListener('input', () => c.name = name.value);
+    width.addEventListener('input', () => c.width = width.value);
+    row.querySelector('.files').textContent = c.error ? 'Failed: ' + c.error
+      : (c.done ? 'Uploaded' : c.front.name + (c.back ? '  +  ' + c.back.name : ''));
+    row.querySelector('.btns').addEventListener('click', e => {
+      const a = e.target.dataset.a;
+      if (!a || bulkBusy) return;
+      if (a === 'swap') [c.front, c.back] = [c.back, c.front];
+      else if (a === 'split') { bulk.splice(i + 1, 0, { name: prettyName(c.back.name.replace(/\.[^.]+$/, '')), front: c.back, back: null, width: c.width }); c.back = null; }
+      else if (a === 'join') { c.back = bulk[i + 1].front; bulk.splice(i + 1, 1); }
+      else if (a === 'drop') bulk.splice(i, 1);
+      drawBulk();
+    });
+    list.appendChild(row);
+  });
+}
+$('bulkFiles').addEventListener('change', regroup);
+$('bulkOrder').addEventListener('change', regroup);
+$('bulkWidth').addEventListener('change', () => { for (const c of bulk) if (!c.done) c.width = $('bulkWidth').value; drawBulk(); });
+$('bulkClear').addEventListener('click', () => { if (bulkBusy) return; bulk = []; $('bulkFiles').value = ''; drawBulk(); });
+$('bulkGo').addEventListener('click', async () => {
+  bulkBusy = true;
+  const todo = bulk.filter(c => !c.done);
+  let ok = 0;
+  for (const [n, c] of todo.entries()) {
+    $('bulkGo').disabled = true;
+    $('bulkGo').textContent = `Uploading ${n + 1} of ${todo.length}…`;
+    const fd = new FormData();
+    fd.append('name', c.name); fd.append('width_in', c.width); fd.append('shape', $('bulkShape').value);
+    fd.append('front', c.front);
+    if (c.back) fd.append('back', c.back);
+    try {
+      const res = await fetch('/api/coins', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'error ' + res.status);
+      c.done = true; c.error = null; ok++;
+    } catch (err) { c.error = err.message; }
+  }
+  bulkBusy = false;
+  const failed = todo.length - ok;
+  toast(failed ? `${ok} added, ${failed} failed (see list)` : `${ok} coins added`, !!failed);
+  if (!failed) { bulk = []; $('bulkFiles').value = ''; }
+  drawBulk();
+  load();
+});
+load();
+</script>
+</body>
+</html>
