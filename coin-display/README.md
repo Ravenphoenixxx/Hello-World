@@ -8,6 +8,10 @@ both sides shown next to one another. Coins are added from a phone or PC.
 
 **Windows:** double-click `setup-windows.bat` once, then `start-windows.bat`.
 
+**Mac:** double-click `setup-mac.command` once, then `start-mac.command`. If macOS
+refuses to open them, right-click the file and choose Open. Needs Python 3 from
+python.org; uses Google Chrome in kiosk mode if installed, otherwise your default browser.
+
 **Raspberry Pi / Linux desktop:** `bash install.sh`, then reboot. The server
 starts at boot and Chromium opens full-screen.
 
