@@ -10,7 +10,8 @@ both sides shown next to one another. Coins are added from a phone or PC.
 
 **Mac:** double-click `setup-mac.command` once, then `start-mac.command`. If macOS
 refuses to open them, right-click the file and choose Open. Needs Python 3 from
-python.org; uses Google Chrome in kiosk mode if installed, otherwise your default browser.
+python.org; `start-mac.command` opens the display in a browser window by itself: Google Chrome
+full-screen if installed, otherwise your default browser.
 
 **Raspberry Pi / Linux desktop:** `bash install.sh`, then reboot. The server
 starts at boot and Chromium opens full-screen.
@@ -25,7 +26,7 @@ python -m venv .venv
 
 - Display: `http://localhost:8080/`
 - Admin (phone or PC on the same network): `http://<computer's address>:8080/admin`.
-  With no coins yet, the display shows a QR code for this page.
+  With no coins yet, the display shows this address and an "Add your first coin" button.
 
 ## Different monitor sizes
 

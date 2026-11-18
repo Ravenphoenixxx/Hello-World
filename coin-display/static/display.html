@@ -44,7 +44,7 @@
 
   /* empty state */
   #empty { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:2vmin; text-align:center; padding:4vmin; }
-  #empty img { width:min(38vmin,340px); border-radius:12px; }
+  #emptyAdd { font:600 3vmin system-ui, sans-serif; background:var(--accent); color:#161616; text-decoration:none; padding:1.6vmin 4vmin; border-radius:1.2vmin; margin:1vmin 0; }
   #empty h1 { font-size:5vmin; margin:0; font-weight:normal; letter-spacing:.06em; }
   #empty p { font-size:2.6vmin; margin:0; color:var(--dim); font-family:system-ui, sans-serif; }
   #empty b { color:var(--accent); }
@@ -78,7 +78,6 @@
   #card { border:2px dashed #d9b25f; border-radius:4%; display:flex; align-items:center; justify-content:center; color:#d9b25f; font-size:13px; margin:10px 0 4px; max-width:100%; }
   #info { background:#12151a; border-radius:10px; padding:10px 12px; font-size:14px; color:#cfd6dd; margin-top:8px; }
   #setupFoot { display:flex; gap:14px; align-items:center; margin-top:18px; }
-  #setupFoot img { width:92px; height:92px; border-radius:6px; }
   #done { margin-left:auto; min-height:50px; padding:0 30px; border-radius:10px; border:0; background:#d9b25f; color:#161616; font-size:17px; font-weight:600; cursor:pointer; }
 </style>
 </head>
@@ -90,8 +89,9 @@
 
 <div id="empty">
   <h1>Challenge Coin Display</h1>
-  <img id="emptyQr" alt="QR code for the admin page">
-  <p>Scan with your phone to add your first coin,<br>or open <b id="emptyUrl"></b> on a PC.</p>
+  <p>No coins yet.</p>
+  <a id="emptyAdd" href="/admin">Add your first coin</a>
+  <p>From a phone or another computer on the same network, open<br><b id="emptyUrl"></b></p>
 </div>
 
 <div id="zoom">
@@ -120,8 +120,8 @@
     <p id="modeHelp"></p>
     <div id="info"></div>
     <div id="setupFoot">
-      <img id="setupQr" alt="">
       <p>Add and manage coins from a phone or PC:<br><b id="setupUrl" style="color:#d9b25f"></b></p>
+      <a href="/admin" style="color:#d9b25f">Open it here</a>
       <button id="done">Done</button>
     </div>
   </div>
@@ -218,7 +218,6 @@ function render() {
   L = computeLayout();
   const visible = state.coins.filter(c => !c.hidden);
   $('empty').style.display = visible.length ? 'none' : 'flex';
-  $('emptyQr').src = $('setupQr').src = '/api/qr.svg';
   $('emptyUrl').textContent = $('setupUrl').textContent = state.admin_url;
 
   const t = $('title');

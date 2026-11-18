@@ -15,7 +15,7 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, Response, abort, jsonify, request, send_file, send_from_directory
+from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 
 import imaging
 
@@ -323,15 +323,6 @@ def api_image(cid, side):
     resp = send_file(path, mimetype="image/webp")
     resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"  # URL carries ?v=
     return resp
-
-
-@app.get("/api/qr.svg")
-def api_qr():
-    import segno
-    buf = io.BytesIO()
-    segno.make(admin_url(), error="m").save(buf, kind="svg", scale=8, border=2,
-                                            dark="#111", light="#fff")
-    return Response(buf.getvalue(), mimetype="image/svg+xml")
 
 
 @app.get("/api/backup")
